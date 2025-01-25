@@ -195,7 +195,17 @@ public class Table
 
         List<Comparable[]> rows = new ArrayList<>();
 
-        // T O B E I M P L E M E N T E D
+        // Determine column positions for the attributes to project
+        int[] colPositions = match(attrs);
+
+        // Extract the projected columns from each tuple
+        for (Comparable[] tuple : tuples) {
+            Comparable[] projectedTuple = new Comparable[colPositions.length];
+            for (int i = 0; i < colPositions.length; i++) {
+                projectedTuple[i] = tuple[colPositions[i]];
+            }
+            rows.add(projectedTuple);
+        } 
 
         return new Table(name + count++, attrs, colDomain, newKey, rows);
     } // project
@@ -343,7 +353,21 @@ public class Table
 
         List<Comparable[]> rows = new ArrayList<>();
 
-        // T O B E I M P L E M E N T E D
+         // Iterate through the tuples of this table
+    for (var t : tuples) {
+        boolean found = false;
+
+        // Check if the tuple exists in table2
+        for (var t2 : table2.tuples) {
+            if (Arrays.equals(t, t2)) {
+                found = true;
+                break;
+            }
+        }
+
+        // Add the tuple to the result if it does not exist in table2
+        if (!found) rows.add(t);
+    }
 
         return new Table(name + count++, attribute, domain, key, rows);
     } // minus
