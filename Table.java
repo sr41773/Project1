@@ -205,7 +205,7 @@ public class Table
                 projectedTuple[i] = tuple[colPositions[i]];
             }
             rows.add(projectedTuple);
-        } 
+        }
 
         return new Table(name + count++, attrs, colDomain, newKey, rows);
     } // project
@@ -237,21 +237,92 @@ public class Table
      * @return a table with tuples satisfying the condition
      */
     public Table select(String condition) {
+        out.println("ENTERED EQUALS" + condition);
         out.println("RA> " + name + ".select (" + condition + ")");
 
         List<Comparable[]> rows = new ArrayList<>();
 
-        // T O B E I M P L E M E N T E D
-
+        // Split the condition into components
         var token = condition.split(" ");
+        if (token.length != 3) {
+            out.println("Invalid condition format");
+            return null;
+        }
+
+        // Get column number and determine numeric type
         var colNo = col(token[0]);
+        boolean isNumeric = domain[colNo].equals("Integer") ||
+                domain[colNo].equals("Float") ||
+                domain[colNo].equals("Double");
+
         for (var t : tuples) {
-            if (satifies(t, colNo, token[1], token[2]))
+            boolean satisfiesCondition = false;
+
+            try {
+
+                switch (token[1]) {
+                    case "=":
+
+                        satisfiesCondition = isNumeric
+                                ? domain[colNo].equals("Integer")
+                                        ? ((Integer) t[colNo]).compareTo(Integer.parseInt(token[2])) == 0
+                                        : domain[colNo].equals("Float")
+                                                ? ((Float) t[colNo]).compareTo(Float.parseFloat(token[2])) == 0
+                                                : ((Double) t[colNo]).compareTo(Double.parseDouble(token[2])) == 0
+                                : t[colNo].toString().equals(token[2]);
+                        break;
+                    case "<":
+                        satisfiesCondition = isNumeric
+                                ? domain[colNo].equals("Integer")
+                                        ? ((Integer) t[colNo]).compareTo(Integer.parseInt(token[2])) < 0
+                                        : domain[colNo].equals("Float")
+                                                ? ((Float) t[colNo]).compareTo(Float.parseFloat(token[2])) < 0
+                                                : ((Double) t[colNo]).compareTo(Double.parseDouble(token[2])) < 0
+                                : t[colNo].toString().compareTo(token[2]) < 0;
+                        break;
+                    case ">":
+                        satisfiesCondition = isNumeric
+                                ? domain[colNo].equals("Integer")
+                                        ? ((Integer) t[colNo]).compareTo(Integer.parseInt(token[2])) > 0
+                                        : domain[colNo].equals("Float")
+                                                ? ((Float) t[colNo]).compareTo(Float.parseFloat(token[2])) > 0
+                                                : ((Double) t[colNo]).compareTo(Double.parseDouble(token[2])) > 0
+                                : t[colNo].toString().compareTo(token[2]) > 0;
+                        break;
+                    case "<=":
+                        satisfiesCondition = isNumeric
+                                ? domain[colNo].equals("Integer")
+                                        ? ((Integer) t[colNo]).compareTo(Integer.parseInt(token[2])) <= 0
+                                        : domain[colNo].equals("Float")
+                                                ? ((Float) t[colNo]).compareTo(Float.parseFloat(token[2])) <= 0
+                                                : ((Double) t[colNo]).compareTo(Double.parseDouble(token[2])) <= 0
+                                : t[colNo].toString().compareTo(token[2]) <= 0;
+                        break;
+                    case ">=":
+                        satisfiesCondition = isNumeric
+                                ? domain[colNo].equals("Integer")
+                                        ? ((Integer) t[colNo]).compareTo(Integer.parseInt(token[2])) >= 0
+                                        : domain[colNo].equals("Float")
+                                                ? ((Float) t[colNo]).compareTo(Float.parseFloat(token[2])) >= 0
+                                                : ((Double) t[colNo]).compareTo(Double.parseDouble(token[2])) >= 0
+                                : t[colNo].toString().compareTo(token[2]) >= 0;
+                        break;
+                    default:
+                        out.println("Unknown operator: " + token[1]);
+                        return null;
+                }
+            } catch (Exception e) {
+                out.println("Comparison error: " + e.getMessage());
+                return null;
+            }
+
+            if (satisfiesCondition) {
                 rows.add(t);
-        } // for
+            }
+        }
 
         return new Table(name + count++, attribute, domain, key, rows);
-    } // select
+    }// select
 
     /************************************************************************************
      * Does tuple t satify the condition t[colNo] op value where op is ==, !=,
@@ -353,21 +424,22 @@ public class Table
 
         List<Comparable[]> rows = new ArrayList<>();
 
-         // Iterate through the tuples of this table
-    for (var t : tuples) {
-        boolean found = false;
+        // Iterate through the tuples of this table
+        for (var t : tuples) {
+            boolean found = false;
 
-        // Check if the tuple exists in table2
-        for (var t2 : table2.tuples) {
-            if (Arrays.equals(t, t2)) {
-                found = true;
-                break;
+            // Check if the tuple exists in table2
+            for (var t2 : table2.tuples) {
+                if (Arrays.equals(t, t2)) {
+                    found = true;
+                    break;
+                }
             }
-        }
 
-        // Add the tuple to the result if it does not exist in table2
-        if (!found) rows.add(t);
-    }
+            // Add the tuple to the result if it does not exist in table2
+            if (!found)
+                rows.add(t);
+        }
 
         return new Table(name + count++, attribute, domain, key, rows);
     } // minus
