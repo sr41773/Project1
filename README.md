@@ -1,5 +1,12 @@
 # Project 1
-Group Members:
+Group Members: 
+Isra Naweed
+Keerthana Ramesh
+Shriya Rasale
+Tharushika Dehipitiarachchi
+Anjali Devarapalli
+
+In the union method, "key" is the primary key.
 
 
 We did not implement the Harrison_Ford test case which corresponded to the below method which was to be 
