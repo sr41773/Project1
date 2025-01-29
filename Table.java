@@ -461,18 +461,41 @@ public class Table
      * @return a table with tuples satisfying the equality predicate
      */
     public Table join(String attributes1, String attributes2, Table table2) {
-        out.println("RA> " + name + ".join (" + attributes1 + ", " + attributes2 + ", " + table2.name + ")");
+    out.println("RA> " + name + ".join (" + attributes1 + ", " + attributes2 + ", " + table2.name + ")");
 
-        var t_attrs = attributes1.split(" ");
-        var u_attrs = attributes2.split(" ");
-        var rows = new ArrayList<Comparable[]>();
+    var t_attrs = attributes1.split(" ");
+    var u_attrs = attributes2.split(" ");
+    var rows = new ArrayList<Comparable[]>();
 
-        // T O B E I M P L E M E N T E D
+    // Get column indices for join attributes in both tables
+    int[] t_cols = match(t_attrs);
+    int[] u_cols = table2.match(u_attrs);
 
-        return new Table(name + count++, concat(attribute, table2.attribute),
-                concat(domain, table2.domain), key, rows);
-    } // join
+    // Nested loop join
+    for (var t : tuples) {
+        for (var u : table2.tuples) {
+            boolean joinMatch = true;
+            
+            // Check if join attributes match
+            for (int j = 0; j < t_cols.length; j++) {
+                if (!t[t_cols[j]].equals(u[u_cols[j]])) {
+                    joinMatch = false;
+                    break;
+                }
+            }
 
+            if (joinMatch) {
+                rows.add(concat(t, u));
+            }
+        }
+    }
+
+    return new Table(name + count++, 
+                    concat(attribute, table2.attribute),
+                    concat(domain, table2.domain), 
+                    key, 
+                    rows);
+}
     /************************************************************************************
      * Join this table and table2 by performing a "theta-join". Tuples from both
      * tables
@@ -488,15 +511,44 @@ public class Table
      * @return a table with tuples satisfying the condition
      */
     public Table join(String condition, Table table2) {
-        out.println("RA> " + name + ".join (" + condition + ", " + table2.name + ")");
+    out.println("RA> " + name + ".join (" + condition + ", " + table2.name + ")");
 
-        var rows = new ArrayList<Comparable[]>();
+    var rows = new ArrayList<Comparable[]>();
+    var token = condition.split(" ");
+    
+    if (token.length != 3) {
+        out.println("join ERROR: malformed theta-join condition");
+        return null;
+    }
 
-        // T O B E I M P L E M E N T E D
+    var attr1 = token[0];
+    var op = token[1];
+    var attr2 = token[2];
 
-        return new Table(name + count++, concat(attribute, table2.attribute),
-                concat(domain, table2.domain), key, rows);
-    } // join
+    var col1 = col(attr1);
+    var col2 = table2.col(attr2);
+
+    // Check if columns exist
+    if (col1 == -1 || col2 == -1) {
+        out.println("join ERROR: attributes not found");
+        return null;
+    }
+
+    // Nested loop join with theta condition
+    for (var t : tuples) {
+        for (var u : table2.tuples) {
+            if (satifies(t, col1, op, u[col2].toString())) {
+                rows.add(concat(t, u));
+            }
+        }
+    }
+
+    return new Table(name + count++, 
+                    concat(attribute, table2.attribute),
+                    concat(domain, table2.domain), 
+                    key, 
+                    rows);
+}// join
 
     /************************************************************************************
      * Join this table and table2 by performing an "equi-join". Same as above
@@ -509,11 +561,55 @@ public class Table
      * @return a table with tuples satisfying the equality predicate
      */
     public Table i_join(String attributes1, String attributes2, Table table2) {
-        // T O B E I M P L E M E N T E D - Project 2
+    out.println("RA> " + name + ".i_join (" + attributes1 + ", " + attributes2 + ", " + table2.name + ")");
 
-        return null;
+    // Split the attributes into arrays (if there are multiple attributes to join on)
+    var t_attrs = attributes1.split(" ");
+    var u_attrs = attributes2.split(" ");
 
-    } // i_join
+    // Get column indices for join attributes in both tables
+    int[] t_cols = match(t_attrs);
+    int[] u_cols = table2.match(u_attrs);
+
+    // Build a hash map (index) for the second table (table2) on the join attributes
+    Map<String, List<Comparable[]>> index = new HashMap<>();
+    
+    // Index table2 by its join attribute
+    for (var u : table2.tuples) {
+        String key = "";
+        for (int i = 0; i < u_cols.length; i++) {
+            key += u[u_cols[i]].toString() + "_";  // Build a unique key based on the join attribute(s)
+        }
+        index.computeIfAbsent(key, k -> new ArrayList<>()).add(u);
+    }
+
+    // Now, perform the join on table1 using the index built for table2
+    var rows = new ArrayList<Comparable[]>();
+
+    for (var t : tuples) {
+        String key = "";
+        for (int i = 0; i < t_cols.length; i++) {
+            key += t[t_cols[i]].toString() + "_";  // Build the key for the tuple in table1
+        }
+        
+        // Look up the key in the index of table2
+        List<Comparable[]> matchingRows = index.get(key);
+
+        if (matchingRows != null) {
+            // If there are matching rows, add the concatenated tuples to the result
+            for (var u : matchingRows) {
+                rows.add(concat(t, u));
+            }
+        }
+    }
+
+    // Create a new table with the joined result
+    return new Table(name + count++, 
+                    concat(attribute, table2.attribute),
+                    concat(domain, table2.domain), 
+                    key, 
+                    rows);
+} // i_join
 
     /************************************************************************************
      * Join this table and table2 by performing an NATURAL JOIN. Tuples from both
@@ -528,16 +624,75 @@ public class Table
      * @return a table with tuples satisfying the equality predicate
      */
     public Table join(Table table2) {
-        out.println("RA> " + name + ".join (" + table2.name + ")");
+    out.println("RA> " + name + ".join (" + table2.name + ")");
 
-        var rows = new ArrayList<Comparable[]>();
+    // Find common attributes
+    List<String> commonAttrs = new ArrayList<>();
+    List<Integer> t_cols = new ArrayList<>();
+    List<Integer> u_cols = new ArrayList<>();
+    
+    for (int i = 0; i < attribute.length; i++) {
+        for (int j = 0; j < table2.attribute.length; j++) {
+            if (attribute[i].equals(table2.attribute[j])) {
+                commonAttrs.add(attribute[i]);
+                t_cols.add(i);
+                u_cols.add(j);
+            }
+        }
+    }
 
-        // T O B E I M P L E M E N T E D
+    // Create new attribute and domain arrays (without duplicates)
+    List<String> newAttrs = new ArrayList<>(Arrays.asList(attribute));
+    List<Class> newDoms = new ArrayList<>(Arrays.asList(domain));
+    
+    for (int i = 0; i < table2.attribute.length; i++) {
+        if (!commonAttrs.contains(table2.attribute[i])) {
+            newAttrs.add(table2.attribute[i]);
+            newDoms.add(table2.domain[i]);
+        }
+    }
 
-        // FIX - eliminate duplicate columns
-        return new Table(name + count++, concat(attribute, table2.attribute),
-                concat(domain, table2.domain), key, rows);
-    } // join
+    var rows = new ArrayList<Comparable[]>();
+
+    // Perform natural join
+    for (var t : tuples) {
+        for (var u : table2.tuples) {
+            boolean matchAll = true;
+            
+            // Check if all common attributes match
+            for (int i = 0; i < commonAttrs.size(); i++) {
+                if (!t[t_cols.get(i)].equals(u[u_cols.get(i)])) {
+                    matchAll = false;
+                    break;
+                }
+            }
+
+            if (matchAll) {
+                // Create new tuple with correct number of attributes
+                Comparable[] newTuple = new Comparable[newAttrs.size()];
+                
+                // Copy attributes from first tuple
+                System.arraycopy(t, 0, newTuple, 0, t.length);
+                
+                // Copy non-common attributes from second tuple
+                int pos = t.length;
+                for (int i = 0; i < table2.attribute.length; i++) {
+                    if (!commonAttrs.contains(table2.attribute[i])) {
+                        newTuple[pos++] = u[i];
+                    }
+                }
+                
+                rows.add(newTuple);
+            }
+        }
+    }
+
+    return new Table(name + count++,
+                    newAttrs.toArray(new String[0]),
+                    newDoms.toArray(new Class[0]),
+                    key,
+                    rows);
+} // join
 
     /************************************************************************************
      * Return the column position for the given attribute name or -1 if not found.
