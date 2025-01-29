@@ -6,8 +6,7 @@ Shriya Rasale
 Tharushika Dehipitiarachchi
 Anjali Devarapalli
 
-In the union method, "key" is the primary key.
-
+In the union method, "key" is the primary key. However, this is not very useful as there might be cases where "key" is not unique for each row.
 
 We did not implement the Harrison_Ford test case which corresponded to the below method which was to be 
 implemented in Project 2.
